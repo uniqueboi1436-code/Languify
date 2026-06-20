@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Diagnostic Tool v2</title>
+    <!-- Try to load Supabase, but don't block rendering if it fails -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="window.supabaseLoadError=true"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #222;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background: #333;
+            border-left: 5px solid #555;
+        }
+
+        .success {
+            border-left-color: #0f0;
+        }
+
+        .error {
+            border-left-color: #f00;
+        }
+
+        .warning {
+            border-left-color: #fa0;
+        }
+
+        code {
+            background: #000;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #444;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>System Diagnostic v2</h1>
+    <button onclick="runDiagnostics()">Run Diagnostics Manually</button>
+    <div id="log">Initializing...</div>
+
+    <script>
+        const log = document.getElementById('log');
+
+        function print(msg, type = 'neutral') {
+            const div = document.createElement('div');
+            div.className = 'status ' + type;
+            div.innerHTML = msg;
+            log.appendChild(div);
+            console.log(`[${type}] ${msg}`);
+        }
+
+        async function runDiagnostics() {
+            log.innerHTML = ''; // Clear previous
+            print('Starting Diagnostics...', 'neutral');
+
+            // 1. Basic JS Check
+            print('JavaScript Execution: OK', 'success');
+
+            // 2. Network / Backend Check
+            print('Checking Backend (/api/health)...', 'neutral');
+            try {
+                const start = Date.now();
+                const res = await fetch('/api/health');
+                const time = Date.now() - start;
+                if (res.ok) {
+                    print(`Backend reachable in ${time}ms`, 'success');
+                } else {
+                    print(`Backend Error: Status ${res.status}`, 'error');
+                }
+            } catch (e) {
+                print(`Backend Connection Failed: ${e.message}`, 'error');
+                print('Is the server running? try checking terminal.', 'warning');
+            }
+
+            // 3. Supabase Library Check
+            if (window.supabaseLoadError) {
+                print('Supabase Library (CDN): FAILED to load', 'error');
+            } else if (window.supabase) {
+                print('Supabase Library: Loaded', 'success');
+            } else {
+                print('Supabase Library: Undefined (Possibly blocked)', 'error');
+            }
+
+            // 4. Config Check
+            let config = null;
+            try {
+                const res = await fetch('/api/config');
+                config = await res.json();
+                if (config.supabaseUrl && config.supabaseAnonKey) {
+                    print(`Config Loaded: URL=${config.supabaseUrl}`, 'success');
+                } else {
+                    print('Config Loaded but keys are empty!', 'error');
+                }
+            } catch (e) {
+                print(`Config Fetch Failed: ${e.message}`, 'error');
+            }
+
+            // 5. Client Test
+            if (window.supabase && config && config.supabaseUrl) {
+                try {
+                    const client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+                    const { data, error } = await client.auth.getSession();
+                    if (error) {
+                        print(`Supabase Connection Error: ${error.message}`, 'error');
+                    } else {
+                        print('Supabase Connection: SUCCESS', 'success');
+                    }
+                } catch (e) {
+                    print(`Supabase Client Crash: ${e.message}`, 'error');
+                }
+            } else {
+                print('Skipping Client Test (Missing deps)', 'warning');
+            }
+        }
+
+        // Auto-run
+        window.onload = function () {
+            runDiagnostics().catch(e => print('Fatal Diagnostic Error: ' + e.message, 'error'));
+        };
+    </script>
+</body>
+
+</html>

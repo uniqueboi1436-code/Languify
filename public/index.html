@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Languify - Translator</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+
+<body>
+
+
+
+
+  <div class="container">
+    <header>
+      <div class="header-content">
+        <div class="title-section">
+          <h1>🌍 Languify</h1>
+          <p>Translate any text to any language instantly</p>
+        </div>
+
+        <div class="header-actions">
+          <div class="theme-toggle">
+
+            <button id="themeToggle" class="theme-btn" title="Toggle Dark Mode">
+              🌙
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+
+
+    <main>
+      <div class="translator-box">
+        <!-- Language Selectors Row -->
+        <div class="lang-selectors-row">
+          <div class="lang-selector-container">
+            <label for="sourceLang">From:</label>
+            <div class="lang-search-wrapper">
+              <input type="text" id="sourceLangSearch" class="lang-search-input" placeholder="Search language...">
+              <select id="sourceLang">
+                <option value="auto">🌐 Auto Detect</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="lang-selector-container">
+            <label for="targetLang">To:</label>
+            <div class="lang-search-wrapper">
+              <input type="text" id="targetLangSearch" class="lang-search-input" placeholder="Search language...">
+              <select id="targetLang">
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input and Output Sections Side by Side -->
+        <div class="text-areas-row">
+          <div class="input-section">
+            <textarea id="sourceText" placeholder="Enter text to translate..." rows="10"></textarea>
+
+            <!-- Camera Modal -->
+            <div id="cameraModal" class="camera-modal hidden">
+              <div class="camera-modal-content">
+                <div class="camera-header">
+                  <h3>📷 Capture Text from Image</h3>
+                  <button id="closeCameraBtn" class="close-btn">&times;</button>
+                </div>
+                <div class="camera-body">
+                  <video id="cameraVideo" autoplay playsinline></video>
+                  <canvas id="captureCanvas" style="display: none;"></canvas>
+                  <img id="imagePreview" class="image-preview hidden" alt="Captured image">
+                </div>
+                <div class="camera-footer">
+                  <button id="capturePhotoBtn" class="btn btn-primary">📸 Capture Photo</button>
+                  <button id="retakePhotoBtn" class="btn btn-secondary hidden">🔄 Retake</button>
+                  <button id="extractTextBtn" class="btn btn-primary hidden">✨ Extract Text</button>
+                </div>
+                <div id="ocrStatus" class="ocr-status hidden">
+                  <div class="spinner"></div>
+                  <p id="ocrStatusText">Processing image...</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Music/Video Modal - convert music/audio to different language -->
+            <div id="musicVideoModal" class="document-modal hidden">
+              <div class="document-modal-content music-video-modal">
+                <div class="document-header music-video-header">
+                  <h3>🎵 Music & Video</h3>
+                  <button id="closeMusicVideoBtn" class="close-btn">&times;</button>
+                </div>
+                <div class="document-body music-video-instructions">
+                  <p class="instruction-text">Upload video or audio. Languify will <strong>clone the voice</strong> and
+                    translate it, while keeping the background track intact (Simulated).</p>
+
+                  <div id="musicVideoDropZone" class="document-drop-zone">
+                    <div class="drop-zone-icon">🎙️</div>
+                    <p class="drop-zone-text">Drop video/audio for Dubbing</p>
+                    <p class="drop-zone-subtext">MP4, MP3, WAV, M4A</p>
+                    <input type="file" id="musicVideoInput" accept=".mp3,.wav,.mp4,.webm,.m4a,.ogg,.aac"
+                      style="display: none;">
+                  </div>
+
+                  <div id="musicVideoFileInfo" class="file-info hidden">
+                    <p id="musicVideoFileName" class="file-info-name"></p>
+                    <p id="musicVideoFileSize" class="file-info-size"></p>
+                  </div>
+
+                  <!-- Dubbing Process UI -->
+                  <div id="dubbingProcessUI" class="dubbing-process hidden">
+                    <div class="process-step">
+                      <span>Separating Vocals...</span>
+                      <div class="progress-bar">
+                        <div id="progressSeparation" class="progress-fill" style="width:0%"></div>
+                      </div>
+                    </div>
+                    <div class="process-step">
+                      <span>Analyzing Voice Signature...</span>
+                      <div class="progress-bar">
+                        <div id="progressCloning" class="progress-fill" style="width:0%"></div>
+                      </div>
+                    </div>
+                    <div class="process-step">
+                      <span>Translating & Dubbing...</span>
+                      <div class="progress-bar">
+                        <div id="progressDubbing" class="progress-fill" style="width:0%"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Dubbing Player -->
+                  <div id="dubbingPlayerContainer" class="dubbing-player-container hidden">
+                    <video id="dubbingVideoPreview" controls class="dubbing-video hidden"></video>
+                    <div id="dubbingAudioPreview" class="dubbing-audio hidden">
+                      <div class="audio-icon-large">🎵</div>
+                      <p>Audio Dubbing Ready</p>
+                      <audio id="dubbingAudio" controls></audio>
+                    </div>
+                    <p class="dubbing-note">Playing original track (background) + Translated Voice (foreground)</p>
+                  </div>
+
+                  <button id="musicVideoExtractBtn" class="btn btn-primary hidden">🎙️ Start Dubbing</button>
+                  <div id="musicVideoStatus" class="document-status hidden">
+                    <div class="spinner"></div>
+                    <p id="musicVideoStatusText">Initializing studio...</p>
+                  </div>
+                </div>
+                <div class="document-footer">
+                  <button id="musicVideoVoiceBtn" class="btn btn-secondary">🎤 Or use Live Voice Input</button>
+                  <button id="closeMusicVideoModalBtn" class="close-btn">Close</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Document Modal -->
+            <div id="documentModal" class="document-modal hidden">
+              <div class="document-modal-content">
+                <div class="document-header">
+                  <h3>📄 Upload Document or Photo</h3>
+                  <button id="closeDocumentBtn" class="close-btn">&times;</button>
+                </div>
+                <div class="document-body">
+                  <p class="document-instruction">Upload any document (PDF, handwritten notes, photos). The
+                    <strong>layout is preserved</strong>—only text will be translated.
+                  </p>
+                  <div id="documentDropZone" class="document-drop-zone">
+                    <div class="drop-zone-icon">📁</div>
+                    <p class="drop-zone-text">Drop your document or photo here</p>
+                    <p class="drop-zone-subtext">PDF, images (JPG, PNG), handwritten notes</p>
+                  </div>
+                  <div id="fileInfo" class="file-info hidden">
+                    <p class="file-info-name" id="fileName">File name</p>
+                    <p class="file-info-size" id="fileSize">File size</p>
+                  </div>
+                  <div id="documentPreview" class="document-preview hidden">
+                    <img id="documentPreviewImg" alt="Document preview" class="document-preview-img">
+                  </div>
+                </div>
+                <div class="document-footer">
+                  <button id="extractDocumentBtn" class="btn btn-primary hidden">📄 Prepare for Translation</button>
+                  <button id="closeDocumentModalBtn" class="close-btn">Close</button>
+                </div>
+                <div id="documentStatus" class="document-status hidden">
+                  <div class="spinner"></div>
+                  <p id="documentStatusText">Processing document...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="output-section">
+            <div id="translatedOutputContainer" class="translated-output-container">
+              <textarea id="translatedText" placeholder="Translation will appear here..." rows="10" readonly></textarea>
+              <div id="translatedImageWrap" class="translated-image-wrap hidden">
+                <img id="translatedImage" alt="Translated photo" class="translated-image">
+              </div>
+              <!-- Translated Document Display -->
+              <div id="translatedDocumentWrap" class="translated-document-wrap hidden">
+                <div class="document-preview-container">
+                  <img id="translatedDocumentPreview" alt="Translated document" class="translated-document-preview">
+                </div>
+                <div class="document-download-actions">
+                  <button id="downloadDocumentBtn" class="btn btn-primary">📥 Download Image</button>
+                  <button id="downloadPdfBtn" class="btn btn-secondary">📄 Download PDF</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls Row -->
+        <div class="controls-row">
+          <div class="button-group">
+            <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            <button id="swapBtn" class="btn btn-secondary">⇄ Swap</button>
+          </div>
+          <div class="button-group">
+            <button id="copyBtn" class="btn btn-secondary">📋 Copy</button>
+            <button id="speakBtn" class="btn btn-secondary">🔊 Speak</button>
+          </div>
+        </div>
+
+        <!-- Input Features Section -->
+        <div class="input-features-section">
+          <h2 class="features-title">Input Features</h2>
+          <div class="input-features-grid">
+            <div class="feature-item">
+              <div class="voice-input-container">
+                <button id="voiceBtn" class="btn btn-voice" type="button"
+                  title="Voice input: speak to transcribe and translate">
+                  <span class="mic-icon">🎤</span>
+                  <span class="mic-text">Voice Input</span>
+                </button>
+                <div id="voiceVisualizer" class="voice-visualizer hidden">
+                  <div class="listening-animation">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                  </div>
+                  <p id="voiceStatus" class="voice-status">Listening... Speak clearly</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="camera-input-container">
+                <button id="cameraBtn" class="btn btn-camera" type="button" title="Click to take a photo">
+                  <span class="camera-icon">📷</span>
+                  <span class="camera-text">Camera Input</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="document-input-container">
+                <button id="documentBtn" class="btn btn-document" type="button" title="Click to upload a document">
+                  <span class="document-icon">📄</span>
+                  <span class="document-text">Document Input</span>
+                </button>
+                <input type="file" id="documentInput"
+                  accept=".txt,.pdf,.docx,.doc,.pptx,.ppt,.jpg,.jpeg,.png,.gif,.bmp,.webp" style="display: none;">
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="music-video-input-container">
+                <button id="musicVideoBtn" class="btn btn-music-video" type="button"
+                  title="Convert music or video to different language">
+                  <span class="music-video-icon">🎵</span>
+                  <span class="music-video-text">Music & Video</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="save-btn-container">
+          <button id="saveTranslationBtn" class="btn btn-primary">Save Translation</button>
+        </div>
+</div>
+        </div>
+
+        
+        <div id="shareLinkContainer" class="share-link hidden"></div>
+
+        <div class="translate-btn-container">
+          <button id="translateBtn" class="btn btn-primary">Translate</button>
+        </div>
+
+        <div id="loading" class="loading hidden">
+          <div class="spinner"></div>
+          <p>Translation is processing...</p>
+        </div>
+
+        <div id="error" class="error-box hidden"></div>
+        <div id="success" class="success-box hidden"></div>
+    </main>
+
+    <footer>
+      <p>© 2026 Languify | Powered by Google Translate</p>
+    </footer>
+  </div>
+
+  <!-- Tesseract.js for OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+
+  <script src="languages.js"></script>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

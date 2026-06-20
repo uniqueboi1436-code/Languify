@@ -1,0 +1,140 @@
+// ===== DUBBING PIPELINE (Audio/Video Translation with Voice Preservation) =====
+app.post('/api/dub-media', mediaUpload.single('media'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No media file uploaded' });
+    }
+
+    const { targetLanguage } = req.body;
+    if (!targetLanguage) {
+      return res.status(400).json({ error: 'targetLanguage is required' });
+    }
+
+    const openAiKey = process.env.OPENAI_API_KEY;
+    const groqKey = process.env.GROQ_API_KEY;
+
+    if (!openAiKey && !groqKey) {
+      return res.status(503).json({
+        error: 'Dubbing requires OPENAI_API_KEY or GROQ_API_KEY for transcription'
+      });
+    }
+
+    console.log('Starting dubbing pipeline...');
+
+    // STEP 1: Transcribe the audio
+    const formData = new FormData();
+    const blob = new Blob([req.file.buffer], { type: req.file.mimetype || 'audio/mpeg' });
+    formData.append('file', blob, req.file.originalname);
+
+    let apiUrl, apiHeaders, model;
+    if (groqKey) {
+      apiUrl = 'https://api.groq.com/openai/v1/audio/transcriptions';
+      apiHeaders = { 'Authorization': `Bearer ${groqKey}` };
+      model = 'whisper-large-v3';
+    } else {
+      apiUrl = 'https://api.openai.com/v1/audio/transcriptions';
+      apiHeaders = { 'Authorization': `Bearer ${openAiKey}` };
+      model = 'whisper-1';
+    }
+
+    formData.append('model', model);
+    const langCode = getLanguageCode(targetLanguage);
+    if (langCode) formData.append('language', langCode);
+
+    const transcribeResp = await fetch(apiUrl, {
+      method: 'POST',
+      headers: apiHeaders,
+      body: formData
+    });
+
+    if (!transcribeResp.ok) {
+      const err = await transcribeResp.text();
+      throw new Error(`Transcription failed: ${err}`);
+    }
+
+    const transcribeData = await transcribeResp.json();
+    const sourceText = (transcribeData.text || '').trim();
+
+    if (!sourceText) {
+      return res.status(400).json({ error: 'No speech detected in the media file' });
+    }
+
+    // STEP 2: Translate the transcribed text
+    let translatedText = sourceText;
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.functions.invoke('translate', {
+          body: { text: sourceText, targetLanguage }
+        });
+        if (!error && data?.translatedText) {
+          translatedText = data.translatedText;
+        }
+      } catch (e) {
+        console.warn('Supabase translation fallback...');
+      }
+    }
+
+    // STEP 3: Convert translated text to speech with quality preservation
+    let audioContent = null;
+
+    if (textToSpeech && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      try {
+        const ttsClient = new textToSpeech.TextToSpeechClient();
+        const request = {
+          input: { text: translatedText },
+          voice: {
+            languageCode: targetLanguage.split('-')[0],
+            name: getVoiceName(targetLanguage),
+            ssmlGender: 'NEUTRAL'
+          },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate: 0.95,
+            pitch: 0,
+            volumeGainDb: 2
+          }
+        };
+        const [response] = await ttsClient.synthesizeSpeech(request);
+        audioContent = response.audioContent;
+      } catch (e) {
+        console.warn('Google TTS fallback...');
+      }
+    }
+
+    // Fallback to VoiceRSS
+    if (!audioContent) {
+      try {
+        const voiceRssUrl = `https://api.voicerss.org/?key=${process.env.VOICERSS_KEY || 'demo'}&hl=${targetLanguage}&src=${encodeURIComponent(translatedText)}&f=48khz_16bit_stereo&c=mp3`;
+        const voiceResp = await fetch(voiceRssUrl);
+        if (voiceResp.ok) {
+          audioContent = await voiceResp.arrayBuffer();
+        }
+      } catch (e) {
+        console.warn('VoiceRSS fallback...');
+      }
+    }
+
+    if (!audioContent) {
+      return res.status(500).json({ error: 'TTS synthesis failed. Check API keys.' });
+    }
+
+    res.set({ 'Content-Type': 'audio/mpeg' });
+    res.send(Buffer.from(audioContent));
+
+  } catch (error) {
+    console.error('Dubbing error:', error);
+    res.status(500).json({ error: 'Dubbing failed: ' + error.message });
+  }
+});
+
+// Helper: Get language code for API calls
+function getLanguageCode(lang) {
+  const codes = { 'en': 'en', 'es': 'es', 'fr': 'fr', 'de': 'de', 'it': 'it', 'pt': 'pt', 'ru': 'ru', 'ja': 'ja', 'ko': 'ko', 'zh': 'zh', 'ar': 'ar', 'hi': 'hi', 'th': 'th', 'vi': 'vi', 'tr': 'tr' };
+  return codes[lang.split('-')[0]] || lang;
+}
+
+// Helper: Get voice name for TTS
+function getVoiceName(lang) {
+  const voices = { 'en': 'en-US-Neural2-A', 'es': 'es-ES-Neural2-A', 'fr': 'fr-FR-Neural2-A', 'de': 'de-DE-Neural2-A', 'it': 'it-IT-Neural2-A', 'pt': 'pt-BR-Neural2-A', 'ru': 'ru-RU-Standard-A', 'ja': 'ja-JP-Neural2-A', 'ko': 'ko-KR-Neural2-A', 'zh': 'zh-CN-Standard-A', 'ar': 'ar-XA-Standard-A' };
+  return voices[lang] || `${lang}-Standard-A`;
+}

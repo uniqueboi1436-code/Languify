@@ -1,0 +1,15 @@
+{
+  "user_Rakesh": {
+    "id": "1770235169608",
+    "username": "Rakesh",
+    "email": "uniqueboi1436@gmail.com",
+    "password": "$2a$10$R2OyBGCmKWA8dfbtyj2l.OiuFagO4XsNHfVsWBCvjlMpsmlCwcNra",
+    "verified": 0,
+    "verification_token": "6e2c51035346f5d49bd832ac844ed859aa6eedf5147538180bf7c299669794d5",
+    "verification_expires": 1770321569,
+    "reset_token": "757ca7f9efbff51ae0953b817cb2ca43979977ade8410e595f7cc0379d426a9d",
+    "reset_expires": 1770239093,
+    "created_at": "2026-02-04T19:59:29.609Z",
+    "last_login": null
+  }
+}

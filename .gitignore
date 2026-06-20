@@ -1,0 +1,19 @@
+node_modules/
+.DS_Store
+.env
+.env.local
+npm-debug.log
+package-lock.json
+
+# Large binaries
+ngrok.exe
+ngrok.zip
+
+# Test/temp files
+test_sample.txt
+test-doc.txt
+scratch-test.js
+translator.db
+
+# Data
+data/
