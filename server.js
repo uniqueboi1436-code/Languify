@@ -5,7 +5,6 @@ const path = require('path');
 const https = require('https');
 const multer = require('multer');
 const fs = require('fs');
-const pdfParse = require('pdf-parse');
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 const { LANGUAGES } = require('./public/languages.js');
@@ -167,8 +166,11 @@ app.post('/api/translate', async (req, res) => {
 
 // Function to extract text from PDF
 async function extractTextFromPDF(fileBuffer) {
+  let parser;
   try {
-    const data = await pdfParse(fileBuffer);
+    const { PDFParse } = require('pdf-parse');
+    parser = new PDFParse({ data: fileBuffer });
+    const data = await parser.getText();
     return data.text;
   } catch (error) {
     // Fallback: try a basic binary extraction
@@ -182,6 +184,10 @@ async function extractTextFromPDF(fileBuffer) {
       return extractedText;
     } catch (fallbackError) {
       throw new Error('Failed to parse PDF: ' + error.message);
+    }
+  } finally {
+    if (parser) {
+      await parser.destroy();
     }
   }
 }
@@ -851,19 +857,23 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
-  const os = require('os');
-  const nets = os.networkInterfaces();
-  let localIP = 'unknown';
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        localIP = net.address;
+// Start server locally only; Vercel imports the Express app as a serverless handler.
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    const os = require('os');
+    const nets = os.networkInterfaces();
+    let localIP = 'unknown';
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          localIP = net.address;
+        }
       }
     }
-  }
-  console.log(`🌍 Languify running on http://localhost:${PORT}`);
-  console.log(`📱 Mobile access: http://${localIP}:${PORT}`);
-  console.log(`📝 Make sure your phone is on the same WiFi network!`);
-});
+    console.log(`Languify running on http://localhost:${PORT}`);
+    console.log(`Mobile access: http://${localIP}:${PORT}`);
+    console.log('Make sure your phone is on the same WiFi network!');
+  });
+}
+
+module.exports = app;
